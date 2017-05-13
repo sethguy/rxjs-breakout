@@ -3,6 +3,9 @@ import Rx from 'rx';
 
 /* Graphics */
 
+const NUMBER_OF_BALLS = 5;
+const BALL_SPEED = 60;
+
 const canvas = document.getElementById('stage');
 const context = canvas.getContext('2d');
 context.fillStyle = 'pink';
@@ -67,6 +70,19 @@ function drawBall(ball) {
     context.closePath();
 }
 
+var drawBalls = function(balls) {
+
+    balls.forEach((ball) => {
+
+        context.beginPath();
+        context.arc(ball.position.x, ball.position.y, ball.radius, 0, Math.PI * 2);
+        context.fill();
+        context.closePath();
+
+    })
+
+}
+
 function drawBrick(brick) {
     context.beginPath();
     context.rect(
@@ -83,10 +99,71 @@ function drawBricks(bricks) {
     bricks.forEach((brick) => drawBrick(brick));
 }
 
+/* Balls */
+
+var ballsFactory = function() {
+
+    let balls = [];
+
+    for (let j = 0; j < NUMBER_OF_BALLS; j++) {
+
+        var x = Math.random() * canvas.width;
+
+        var y = Math.random() * canvas.height;
+
+        var vectorOptions = [-2, 2];
+
+        var startMx = vectorOptions[Math.floor(Math.random() * vectorOptions.length)];
+
+        var startMy = vectorOptions[Math.floor(Math.random() * vectorOptions.length)];
+
+        balls.push({
+
+            wallCollision:{
+
+                x:false,
+
+                y:false
+            },
+
+            speedX: Math.floor(BALL_SPEED * Math.random()) + 3,
+
+            speedY: Math.floor(BALL_SPEED * Math.random()) + 3,
+
+            radius: BALL_RADIUS,
+            collisions: [],
+            range: {
+
+                x: { start: x - BALL_RADIUS, end: x + BALL_RADIUS },
+
+                y: { start: y - BALL_RADIUS, end: y + BALL_RADIUS }
+
+            },
+            position: {
+
+                x: x,
+
+                y: y
+
+            },
+            direction: {
+
+                x: startMx,
+
+                y: startMy
+
+            }
+
+        });
+
+    }
+
+    return balls;
+}
 
 /* Sounds */
 
-const audio = new (window.AudioContext || window.webkitAudioContext)();
+const audio = new(window.AudioContext || window.webkitAudioContext)();
 const beeper = new Rx.Subject();
 beeper.sample(100).subscribe((key) => {
 
@@ -101,7 +178,6 @@ beeper.sample(100).subscribe((key) => {
     oscillator.stop(audio.currentTime + 0.100);
 
 });
-
 
 /* Ticker */
 
@@ -158,103 +234,129 @@ const paddle$ = ticker$
 
 /* Ball */
 
-const BALL_SPEED = 60;
+
 const INITIAL_OBJECTS = {
-    ball: {
-        position: {
-            x: canvas.width / 2,
-            y: canvas.height / 2
-        },
-        direction: {
-            x: 2,
-            y: 2
-        }
-    },
-    bricks: factory(),
+    balls: ballsFactory(),
     score: 0
 };
 
-function hit(paddle, ball) {
-    return ball.position.x > paddle - PADDLE_WIDTH / 2
-        && ball.position.x < paddle + PADDLE_WIDTH / 2
-        && ball.position.y > canvas.height - PADDLE_HEIGHT - BALL_RADIUS / 2;
+
+function ballXSortfunction(a, b) {
+    if (a.position.x < b.position.x) {
+        return -1;
+    }
+    if (a.position.x > b.position.x) {
+        return 1;
+    }
+    // a must be equal to b
+    return 0;
 }
+
+function ballYSortfunction(a, b) {
+    if (a.position.y < b.position.y) {
+        return -1;
+    }
+    if (a.position.y > b.position.y) {
+        return 1;
+    }
+    // a must be equal to b
+    return 0;
+}
+
+var collisionScanner = function(balls) {
+
+        var collisionReport = {
+
+        };
+
+        var xCollisions = [];
+
+        var yCollisions = [];
+
+        balls.reduce((ranges, nextBall) => {
+
+                xCollisions = ranges.filter((ball) => (ball.range.x.end > nextBall.range.x.start)).map((ball) => {
+
+                    return ball;
+
+                })
+
+                yCollisions = ranges.filter((ball) => (ball.range.y.end > nextBall.range.y.start)).map((ball) => {
+
+                    return ball;
+
+                }).filter((yball) => {
+
+                    return xCollisions.filter((xball) => (xball.id == yball.id)).length > 0
+
+                }).map((yballAtDoubleCollision) => {
+
+                    nextBall.collisions.push(yballAtDoubleCollision)
+
+                    yballAtDoubleCollision.collisions.push(nextBall)
+
+                    return yballAtDoubleCollision
+
+                })
+
+                ranges.push(nextBall);
+
+                return ranges;
+
+            }, []) // REDUCE
+
+        // console.log('yCollisions', yCollisions)
+
+        var collisions = []
+
+        balls.forEach((ball) => {
+
+                ball.wallCollision.x = false;
+
+                ball.wallCollision.y = false;
+
+            if (ball.position.x < BALL_RADIUS || ball.position.x > canvas.width - BALL_RADIUS) {
+                ball.direction.x = -ball.direction.x;
+                ball.wallCollision.x = true;
+            }
+
+            collisions.ceiling = ball.position.y < BALL_RADIUS;
+
+            collisions.floor = (ball.position.y > canvas.height - BALL_RADIUS)
+
+            if (collisions.ceiling || collisions.floor) {
+                ball.direction.y = -ball.direction.y;
+
+
+                ball.wallCollision.y = true;
+            }
+
+        })
+
+        return collisionReport;
+
+    } //collisionScanner
 
 const objects$ = ticker$
     .withLatestFrom(paddle$)
-    .scan(({ball, bricks, collisions, score}, [ticker, paddle]) => {
+    .scan(({ balls, score }, [ticker, paddle]) => {
 
-        let survivors = [];
-        collisions = {
-            paddle: false,
-            floor: false,
-            wall: false,
-            ceiling: false,
-            brick: false
-        };
+        balls.forEach((ball) => {
 
-        ball.position.x = ball.position.x + ball.direction.x * ticker.deltaTime * BALL_SPEED;
-        ball.position.y = ball.position.y + ball.direction.y * ticker.deltaTime * BALL_SPEED;
+            ball.position.x = ball.position.x + ball.direction.x * ticker.deltaTime * ball.speedX;
 
-        bricks.forEach((brick) => {
-            if (!collision(brick, ball)) {
-                survivors.push(brick);
-            } else {
-                collisions.brick = true;
-                score = score + 10;
-            }
-        });
+            ball.position.y = ball.position.y + ball.direction.y * ticker.deltaTime * ball.speedY;
 
-        collisions.paddle = hit(paddle, ball);
+        })
 
-        if (ball.position.x < BALL_RADIUS || ball.position.x > canvas.width - BALL_RADIUS) {
-            ball.direction.x = -ball.direction.x;
-            collisions.wall = true;
-        }
-
-        collisions.ceiling = ball.position.y < BALL_RADIUS;
-
-        if (collisions.brick || collisions.paddle || collisions.ceiling ) {
-            ball.direction.y = -ball.direction.y;
-        }
+        var collisionsReport = collisionScanner(balls);
 
         return {
-            ball: ball,
-            bricks: survivors,
-            collisions: collisions,
+            balls: balls,
             score: score
         };
 
     }, INITIAL_OBJECTS);
-
-
-/* Bricks */
-
-function factory() {
-    let width = (canvas.width - BRICK_GAP - BRICK_GAP * BRICK_COLUMNS) / BRICK_COLUMNS;
-    let bricks = [];
-
-    for (let i = 0; i < BRICK_ROWS; i++) {
-        for (let j = 0; j < BRICK_COLUMNS; j++) {
-            bricks.push({
-                x: j * (width + BRICK_GAP) + width / 2 + BRICK_GAP,
-                y: i * (BRICK_HEIGHT + BRICK_GAP) + BRICK_HEIGHT / 2 + BRICK_GAP + 20,
-                width: width,
-                height: BRICK_HEIGHT
-            });
-        }
-    }
-
-    return bricks;
-}
-
-function collision(brick, ball) {
-    return ball.position.x + ball.direction.x > brick.x - brick.width / 2
-        && ball.position.x + ball.direction.x < brick.x + brick.width / 2
-        && ball.position.y + ball.direction.y > brick.y - brick.height / 2
-        && ball.position.y + ball.direction.y < brick.y + brick.height / 2;
-}
-
 
 /* Game */
 
@@ -266,26 +368,19 @@ function update([ticker, paddle, objects]) {
 
     context.clearRect(0, 0, canvas.width, canvas.height);
 
-    drawPaddle(paddle);
-    drawBall(objects.ball);
-    drawBricks(objects.bricks);
+    drawBalls(objects.balls);
+
     drawScore(objects.score);
 
-    if (objects.ball.position.y > canvas.height - BALL_RADIUS) {
-        beeper.onNext(28);
-        drawGameOver('GAME OVER');
-        game.dispose();
-    }
+    objects.balls.forEach((ball) => {
 
-    if (!objects.bricks.length) {
-        beeper.onNext(52);
-        drawGameOver('CONGRATULATIONS');
-        game.dispose();
-    }
+            if(ball.wallCollision.x || ball.wallCollision.y){
 
-    if (objects.collisions.paddle) beeper.onNext(40);
-    if (objects.collisions.wall || objects.collisions.ceiling) beeper.onNext(45);
-    if (objects.collisions.brick) beeper.onNext(47 + Math.floor(objects.ball.position.y % 12));
+                    beeper.onNext(40);
+
+            }
+
+    })
 
 }
 
