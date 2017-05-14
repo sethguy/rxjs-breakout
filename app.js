@@ -263,6 +263,22 @@ function ballYSortfunction(a, b) {
     return 0;
 }
 
+var = collision = function(nextBall, feild, carrier) {
+
+    var colide = false;
+
+    if (colide) {
+
+        nextBall.collisions.push(carrier);
+
+        carrier.collisions.push(nextBall);
+
+    }
+
+    return false;
+
+}
+
 var collisionScanner = function(balls) {
 
         var collisionReport = {
@@ -281,22 +297,47 @@ var collisionScanner = function(balls) {
 
                 })
 
-               /*xCollisions.sort().reduce((collisionReport, nextBall) => {
+                var INIT_CARRY = {
 
-                    currentField = collisionReport.currentField
+                    lastball: null,
 
-                    // if nextBall in current field
+                    fieldrange: {
 
+                        min: 0,
 
-                    collisionReport.collisions.push( { a :collisionReport.lastBall , b: next } )
+                        max: 0
 
-                        // field gets modified
-                        // current field is most largest field on the range, 
-                       // and it is as if this current feild is being "carried" by your nearest neighbors     
-                    return collisionReport;
+                    },
 
-                }) */
-                
+                    collisions: []
+                }
+
+                xCollisions.sort().reduce(({ lastball, fieldrange, collistions }, nextBall) => {
+
+                    if (collision(nextBall, fieldrange, lastball)) {
+
+                        collisions.push({ a: lastBall, b: nextBall })
+
+                    }
+
+                    return {
+
+                        lastball: nextBall,
+
+                        fieldRange: {
+
+                            min: Math.min(fieldRange.min, nextBall.range.min),
+
+                            max: Math.max(fieldRange.max, nextBall.range.max)
+
+                        },
+
+                        collisions
+
+                    }
+
+                }, INIT_CARRY )
+
 
                 yCollisions = ranges.filter((ball) => (ball.range.y.end > nextBall.range.y.start)).map((ball) => {
 
