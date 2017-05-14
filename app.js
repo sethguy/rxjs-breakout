@@ -119,11 +119,11 @@ var ballsFactory = function() {
 
         balls.push({
 
-            wallCollision:{
+            wallCollision: {
 
-                x:false,
+                x: false,
 
-                y:false
+                y: false
             },
 
             speedX: Math.floor(BALL_SPEED * Math.random()) + 3,
@@ -281,6 +281,23 @@ var collisionScanner = function(balls) {
 
                 })
 
+               /*xCollisions.sort().reduce((collisionReport, nextBall) => {
+
+                    currentField = collisionReport.currentField
+
+                    // if nextBall in current field
+
+
+                    collisionReport.collisions.push( { a :collisionReport.lastBall , b: next } )
+
+                        // field gets modified
+                        // current field is most largest field on the range, 
+                       // and it is as if this current feild is being "carried" by your nearest neighbors     
+                    return collisionReport;
+
+                }) */
+                
+
                 yCollisions = ranges.filter((ball) => (ball.range.y.end > nextBall.range.y.start)).map((ball) => {
 
                     return ball;
@@ -311,9 +328,9 @@ var collisionScanner = function(balls) {
 
         balls.forEach((ball) => {
 
-                ball.wallCollision.x = false;
+            ball.wallCollision.x = false;
 
-                ball.wallCollision.y = false;
+            ball.wallCollision.y = false;
 
             if (ball.position.x < BALL_RADIUS || ball.position.x > canvas.width - BALL_RADIUS) {
                 ball.direction.x = -ball.direction.x;
@@ -374,11 +391,11 @@ function update([ticker, paddle, objects]) {
 
     objects.balls.forEach((ball) => {
 
-            if(ball.wallCollision.x || ball.wallCollision.y){
+        if (ball.wallCollision.x || ball.wallCollision.y) {
 
-                    beeper.onNext(40);
+            beeper.onNext(40);
 
-            }
+        }
 
     })
 
