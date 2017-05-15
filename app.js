@@ -312,7 +312,7 @@ var collisionScanner = function(balls) {
                     collisions: []
                 }
 
-                xCollisions.sort().reduce(({ lastball, fieldrange, collistions }, nextBall) => {
+                xCollisions.sort().reduce(({ lastball, fieldrange, collisions }, nextBall) => {
 
                     if (collision(nextBall, fieldrange, lastball)) {
 
